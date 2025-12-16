@@ -23,9 +23,9 @@ endif
 all: build
 
 build:
-	make -f makefile.generate_verilated -j5
-	make -f makefile.build_verilated -j5
-	make -f makefile.build_sysc_tb -j5
+	make -f makefile.generate_verilated -j14
+	make -f makefile.build_verilated -j14
+	make -f makefile.build_sysc_tb -j14
 
 clean:
 	make -f makefile.generate_verilated
@@ -34,4 +34,4 @@ clean:
 	-rm -rf *.vcd verilated
 
 run: build
-	./build/test.x -f $(TEST_IMAGE) -c 35000
+	./build/test.x -f $(TEST_IMAGE)

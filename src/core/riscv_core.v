@@ -39,8 +39,8 @@ module riscv_core
     ,parameter EXTRA_DECODE_STAGE = 0
     ,parameter MEM_CACHE_ADDR_MIN = 32'h80000000
     ,parameter MEM_CACHE_ADDR_MAX = 32'h8fffffff
-    ,parameter NUM_BTB_ENTRIES  = 8
-    ,parameter NUM_BTB_ENTRIES_W = 3
+    ,parameter NUM_BTB_ENTRIES  = 32
+    ,parameter NUM_BTB_ENTRIES_W = 5
     ,parameter NUM_BHT_ENTRIES  = 512
     ,parameter NUM_BHT_ENTRIES_W = 9
     ,parameter RAS_ENABLE       = 1

@@ -12,6 +12,7 @@
 
 #define MEM_BASE 0x80000000
 
+
 //-----------------------------------------------------------------
 // Command line options
 //-----------------------------------------------------------------
@@ -61,7 +62,7 @@ public:
   //-----------------------------------------------------------------
   void process(void) {
     uint64_t cycles = 0;
-    int64_t max_cycles = (int64_t)-1;
+    uint64_t max_cycles = (int64_t)-1;
     const char *filename = NULL;
     int help = 0;
     int c;
@@ -74,7 +75,7 @@ public:
         filename = optarg;
         break;
       case 'c':
-        max_cycles = (int64_t)strtoull(optarg, NULL, 0);
+        max_cycles = (uint64_t)strtoull(optarg, NULL, 0);
         break;
       case '?':
       default:
@@ -107,13 +108,10 @@ public:
 
       // 每个周期监测分支预测器
       m_bp_monitor->monitor();
-
       wait();
     }
-
     // 打印分支预测器统计信息
     m_bp_monitor->print_stats();
-
     // 关闭波形追踪
     close_trace();
 
@@ -165,6 +163,17 @@ public:
       return;
 
     verilator_trace_enable(vcd_filename.c_str(), m_dut);
+  }
+
+  //-----------------------------------------------------------------
+  // abort: Override to print BP stats before abort
+  //-----------------------------------------------------------------
+  void abort(void) override {
+    if (m_bp_monitor) {
+      m_bp_monitor->print_stats();
+    }
+    // Call base class abort to close trace, etc.
+    testbench_vbase::abort();
   }
 
   //-----------------------------------------------------------------

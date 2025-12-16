@@ -38,6 +38,7 @@ module biriscv_npc
     ,parameter BHT_ENABLE       = 1
     ,parameter NUM_RAS_ENTRIES  = 8
     ,parameter NUM_RAS_ENTRIES_W = 3
+    ,parameter RESET_VECTOR     = 32'h80000000
 )
 //-----------------------------------------------------------------
 // Ports
@@ -61,13 +62,16 @@ module biriscv_npc
     ,input           pc_accept_i
 
     // Outputs
-    ,output [ 31:0]  next_pc_f_o
-    ,output [  1:0]  next_taken_f_o
+    ,output reg [ 31:0]  next_pc_f_o_r
+    ,output reg [  1:0]  next_taken_f_o_r
 );
 
 
 
 localparam RAS_INVALID = 32'h00000001;
+
+wire [ 31:0]  next_pc_f_o;
+wire [  1:0]  next_taken_f_o;
 
 //-----------------------------------------------------------------
 // Branch prediction (BTB, BHT, RAS)
@@ -389,7 +393,6 @@ assign next_taken_f_o = (btb_valid_w & (ras_ret_pred_w | bht_predict_taken_w | b
 assign pred_taken_w   = btb_valid_w & (ras_ret_pred_w | bht_predict_taken_w | btb_is_jmp_r) & pc_accept_i;
 assign pred_ntaken_w  = btb_valid_w & ~pred_taken_w & pc_accept_i;
 
-
 end
 //-----------------------------------------------------------------
 // No branch prediction
@@ -402,6 +405,21 @@ assign next_taken_f_o = 2'b0;
 
 end
 endgenerate
+
+always @(posedge clk_i or posedge rst_i)
+if (rst_i) begin
+    next_pc_f_o_r <= RESET_VECTOR + 32'd8;
+    next_taken_f_o_r <= 2'd0;
+
+end
+else begin
+    next_pc_f_o_r <= next_pc_f_o;
+    next_taken_f_o_r <= next_taken_f_o;
+end
+
+
+
+
 
 endmodule
 

@@ -1,7 +1,10 @@
 #include "bp_monitor.h"
 #include "Vriscv_top.h"
 #include "Vriscv_top___024root.h"
-#include "Vriscv_top_riscv_core__N200_NB9.h"
+// #include "Vriscv_top_riscv_core__N200_NB9.h"
+// #include "Vriscv_top_riscv_core__N100_NB8_NC100_ND8.h"
+// #include "Vriscv_top_riscv_core__N10_NB4_NC100_ND8.h"
+#include "Vriscv_top_riscv_core__N80_NB7.h"
 #include "Vriscv_top_riscv_top.h"
 
 // Constructor
@@ -29,16 +32,16 @@ void BPMonitor::monitor() {
 
   // Get all signals for trace
 
-  bool branch_request_i = core->u_frontend__DOT__u_npc__DOT__branch_request_i;
-  bool branch_is_taken_i = core->u_frontend__DOT__u_npc__DOT__branch_is_taken_i;
+  bool branch_request_i = core->u_frontend__DOT__u_npcg__DOT__u_npc__DOT__branch_request_i;
+  bool branch_is_taken_i = core->u_frontend__DOT__u_npcg__DOT__u_npc__DOT__branch_is_taken_i;
   bool branch_is_not_taken_i =
-      core->u_frontend__DOT__u_npc__DOT__branch_is_not_taken_i;
+      core->u_frontend__DOT__u_npcg__DOT__u_npc__DOT__branch_is_not_taken_i;
 
-  bool branch_is_call_i = core->u_frontend__DOT__u_npc__DOT__branch_is_call_i;
-  bool branch_is_ret_i = core->u_frontend__DOT__u_npc__DOT__branch_is_ret_i;
-  bool branch_is_jmp_i = core->u_frontend__DOT__u_npc__DOT__branch_is_jmp_i;
+  bool branch_is_call_i = core->u_frontend__DOT__u_npcg__DOT__u_npc__DOT__branch_is_call_i;
+  bool branch_is_ret_i = core->u_frontend__DOT__u_npcg__DOT__u_npc__DOT__branch_is_ret_i;
+  bool branch_is_jmp_i = core->u_frontend__DOT__u_npcg__DOT__u_npc__DOT__branch_is_jmp_i;
 
-  uint32_t branch_pc = core->u_frontend__DOT__u_npc__DOT__branch_source_i;
+  uint32_t branch_pc = core->u_frontend__DOT__u_npcg__DOT__u_npc__DOT__branch_source_i;
 
   bool taken_no_taken = branch_is_taken_i || branch_is_not_taken_i;
 
@@ -61,7 +64,7 @@ void BPMonitor::monitor() {
                  << std::endl;
   }
 
-  if (taken_no_taken && !branch_request_i) {
+  if (taken_no_taken) {
     m_stats.total_predictions++;
     // Count as correct prediction (will be corrected if misprediction happens)
     m_stats.direction_correct++;
@@ -87,19 +90,18 @@ void BPMonitor::monitor() {
   }
 
   if (branch_request_i && taken_no_taken) {
-
+    m_stats.direction_incorrect++;
+    m_stats.overall_incorrect++;
+    m_stats.target_incorrect++;
     // Correct the statistics - remove one correct, add one incorrect
     if (m_stats.direction_correct > 0) {
       m_stats.direction_correct--;
-      m_stats.direction_incorrect++;
     }
     if (m_stats.overall_correct > 0) {
       m_stats.overall_correct--;
-      m_stats.overall_incorrect++;
     }
     if (m_stats.target_correct > 0) {
       m_stats.target_correct--;
-      m_stats.target_incorrect++;
     }
   }
 }

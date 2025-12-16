@@ -67,19 +67,19 @@ struct BranchPredictorStats {
         std::cout << "\n--- Direction Prediction ---" << std::endl;
         std::cout << "Correct:             " << direction_correct << std::endl;
         std::cout << "Incorrect:           " << direction_incorrect << std::endl;
-        std::cout << "Accuracy:            " << std::fixed << std::setprecision(2)
+        std::cout << "Accuracy:            " << std::fixed << std::setprecision(6)
                   << get_direction_accuracy() << "%" << std::endl;
 
         std::cout << "\n--- Target Address Prediction ---" << std::endl;
         std::cout << "Correct:             " << target_correct << std::endl;
         std::cout << "Incorrect:           " << target_incorrect << std::endl;
-        std::cout << "Accuracy:            " << std::fixed << std::setprecision(2)
+        std::cout << "Accuracy:            " << std::fixed << std::setprecision(6)
                   << get_target_accuracy() << "%" << std::endl;
 
         std::cout << "\n--- Overall Prediction (Direction + Target) ---" << std::endl;
         std::cout << "Correct:             " << overall_correct << std::endl;
         std::cout << "Incorrect:           " << overall_incorrect << std::endl;
-        std::cout << "Accuracy:            " << std::fixed << std::setprecision(2)
+        std::cout << "Accuracy:            " << std::fixed << std::setprecision(6)
                   << get_overall_accuracy() << "%" << std::endl;
 
         std::cout << "\n--- Branch Type Distribution ---" << std::endl;

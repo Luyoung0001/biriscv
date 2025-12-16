@@ -38,7 +38,7 @@ public:
 
     SC_HAS_PROCESS(testbench_vbase);
     testbench_vbase(sc_module_name name): sc_module(name)
-    {    
+    {
         SC_CTHREAD(process, clk);
         SC_CTHREAD(monitor, clk);
     }
@@ -77,8 +77,7 @@ public:
         }
         else
             return false;
-    }    
-
+    }
     std::string getenv_str(std::string name, std::string defval)
     {
         char *s = getenv(name.c_str());

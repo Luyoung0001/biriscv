@@ -72,6 +72,7 @@ public:
 
     virtual void abort(void)
     {
+        // m_bp_monitor->print_stats();
         cout << "TB: Aborted at " << sc_time_stamp() << endl;
         if (m_verilate_vcd)
         {
@@ -102,7 +103,7 @@ public:
         }
         else
             return false;
-    }    
+    }
 
     std::string getenv_str(std::string name, std::string defval)
     {

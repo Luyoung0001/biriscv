@@ -9,18 +9,21 @@
 //                     License: Apache 2.0
 //-----------------------------------------------------------------
 // Copyright 2020 Ultra-Embedded.com
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//-----------------------------------------------------------------
+// Modified: New pipeline architecture
+// npc_g --> Fetch --> Decode
 //-----------------------------------------------------------------
 
 module biriscv_frontend
@@ -41,6 +44,7 @@ module biriscv_frontend
     ,parameter BHT_ENABLE       = 1
     ,parameter NUM_RAS_ENTRIES  = 8
     ,parameter NUM_RAS_ENTRIES_W = 3
+    ,parameter RESET_VECTOR     = 32'h80000000
 )
 //-----------------------------------------------------------------
 // Ports
@@ -103,20 +107,31 @@ module biriscv_frontend
     ,output          fetch1_instr_invalid_o
 );
 
+//-----------------------------------------------------------------
+// Wires between next_pc_generator and fetch
+//-----------------------------------------------------------------
+wire  [ 31:0]  npc_pc_w;           // PC from next_pc_generator
+wire           npc_valid_w;        // PC valid
+wire  [  1:0]  npc_pred_branch_w;  // Branch prediction info
+wire           npc_ready_w;        // Ready from fetch
+
+//-----------------------------------------------------------------
+// Wires between fetch and decode
+//-----------------------------------------------------------------
 wire           fetch_valid_w;
 wire  [ 63:0]  fetch_instr_w;
 wire           fetch_fault_page_w;
-wire  [ 31:0]  next_pc_f_w;
-wire  [  1:0]  next_taken_f_w;
-wire  [ 31:0]  fetch_pc_f_w;
-wire           fetch_accept_w;
 wire  [  1:0]  fetch_pred_branch_w;
 wire  [ 31:0]  fetch_pc_w;
+wire           fetch_accept_w;
 wire           fetch_fault_fetch_w;
-wire           fetch_pc_accept_w;
 
 
-biriscv_npc
+//-----------------------------------------------------------------
+// Next PC Generator (upstream of Fetch)
+// Wrapper around biriscv_npc, maintains PC register
+//-----------------------------------------------------------------
+biriscv_npcg
 #(
      .NUM_BTB_ENTRIES(NUM_BTB_ENTRIES)
     ,.SUPPORT_BRANCH_PREDICTION(SUPPORT_BRANCH_PREDICTION)
@@ -128,30 +143,86 @@ biriscv_npc
     ,.NUM_BHT_ENTRIES(NUM_BHT_ENTRIES)
     ,.RAS_ENABLE(RAS_ENABLE)
     ,.NUM_RAS_ENTRIES(NUM_RAS_ENTRIES)
+    ,.RESET_VECTOR(RESET_VECTOR)
 )
-u_npc
+u_npcg
 (
     // Inputs
      .clk_i(clk_i)
     ,.rst_i(rst_i)
     ,.invalidate_i(1'b0)
-    ,.branch_request_i(branch_info_request_i)
+
+    // Branch feedback from execute stage
+    ,.branch_request_i(branch_request_i)
     ,.branch_is_taken_i(branch_info_is_taken_i)
     ,.branch_is_not_taken_i(branch_info_is_not_taken_i)
     ,.branch_source_i(branch_info_source_i)
     ,.branch_is_call_i(branch_info_is_call_i)
     ,.branch_is_ret_i(branch_info_is_ret_i)
     ,.branch_is_jmp_i(branch_info_is_jmp_i)
-    ,.branch_pc_i(branch_info_pc_i)
-    ,.pc_f_i(fetch_pc_f_w)
-    ,.pc_accept_i(fetch_pc_accept_w)
+    ,.branch_pc_i(branch_pc_i)
 
-    // Outputs
-    ,.next_pc_f_o(next_pc_f_w)
-    ,.next_taken_f_o(next_taken_f_w)
+    // Handshake with Fetch (downstream)
+    ,.ready_i(npc_ready_w)
+
+    // Outputs to Fetch
+    ,.pc_o(npc_pc_w)
+    ,.valid_o(npc_valid_w)
+    ,.pred_branch_o(npc_pred_branch_w)
 );
 
 
+//-----------------------------------------------------------------
+// Fetch Unit
+//-----------------------------------------------------------------
+biriscv_fetch
+#(
+     .SUPPORT_MMU(SUPPORT_MMU)
+)
+u_fetch
+(
+    // Inputs
+     .clk_i(clk_i)
+    ,.rst_i(rst_i)
+    ,.fetch_accept_i(fetch_accept_w)
+    ,.icache_accept_i(icache_accept_i)
+    ,.icache_valid_i(icache_valid_i)
+    ,.icache_error_i(icache_error_i)
+    ,.icache_inst_i(icache_inst_i)
+    ,.icache_page_fault_i(icache_page_fault_i)
+    ,.fetch_invalidate_i(fetch_invalidate_i)
+
+    // Branch redirect (for dropping icache responses)
+    ,.branch_request_i(branch_request_i)
+    ,.branch_pc_i(branch_pc_i)
+    ,.branch_priv_i(branch_priv_i)
+
+    // From next_pc_generator (upstream)
+    ,.pc_i(npc_pc_w)
+    ,.pc_valid_i(npc_valid_w)
+    ,.pred_branch_i(npc_pred_branch_w)
+
+    // Outputs
+    ,.fetch_valid_o(fetch_valid_w)
+    ,.fetch_instr_o(fetch_instr_w)
+    ,.fetch_pred_branch_o(fetch_pred_branch_w)
+    ,.fetch_fault_fetch_o(fetch_fault_fetch_w)
+    ,.fetch_fault_page_o(fetch_fault_page_w)
+    ,.fetch_pc_o(fetch_pc_w)
+    ,.icache_rd_o(icache_rd_o)
+    ,.icache_flush_o(icache_flush_o)
+    ,.icache_invalidate_o(icache_invalidate_o)
+    ,.icache_pc_o(icache_pc_o)
+    ,.icache_priv_o(icache_priv_o)
+
+    // To next_pc_generator (upstream) - handshake
+    ,.pc_ready_o(npc_ready_w)
+);
+
+
+//-----------------------------------------------------------------
+// Decode Unit
+//-----------------------------------------------------------------
 biriscv_decode
 #(
      .EXTRA_DECODE_STAGE(EXTRA_DECODE_STAGE)
@@ -202,45 +273,6 @@ u_decode
     ,.fetch_out1_instr_csr_o(fetch1_instr_csr_o)
     ,.fetch_out1_instr_rd_valid_o(fetch1_instr_rd_valid_o)
     ,.fetch_out1_instr_invalid_o(fetch1_instr_invalid_o)
-);
-
-
-biriscv_fetch
-#(
-     .SUPPORT_MMU(SUPPORT_MMU)
-)
-u_fetch
-(
-    // Inputs
-     .clk_i(clk_i)
-    ,.rst_i(rst_i)
-    ,.fetch_accept_i(fetch_accept_w)
-    ,.icache_accept_i(icache_accept_i)
-    ,.icache_valid_i(icache_valid_i)
-    ,.icache_error_i(icache_error_i)
-    ,.icache_inst_i(icache_inst_i)
-    ,.icache_page_fault_i(icache_page_fault_i)
-    ,.fetch_invalidate_i(fetch_invalidate_i)
-    ,.branch_request_i(branch_request_i)
-    ,.branch_pc_i(branch_pc_i)
-    ,.branch_priv_i(branch_priv_i)
-    ,.next_pc_f_i(next_pc_f_w)
-    ,.next_taken_f_i(next_taken_f_w)
-
-    // Outputs
-    ,.fetch_valid_o(fetch_valid_w)
-    ,.fetch_instr_o(fetch_instr_w)
-    ,.fetch_pred_branch_o(fetch_pred_branch_w)
-    ,.fetch_fault_fetch_o(fetch_fault_fetch_w)
-    ,.fetch_fault_page_o(fetch_fault_page_w)
-    ,.fetch_pc_o(fetch_pc_w)
-    ,.icache_rd_o(icache_rd_o)
-    ,.icache_flush_o(icache_flush_o)
-    ,.icache_invalidate_o(icache_invalidate_o)
-    ,.icache_pc_o(icache_pc_o)
-    ,.icache_priv_o(icache_priv_o)
-    ,.pc_f_o(fetch_pc_f_w)
-    ,.pc_accept_o(fetch_pc_accept_w)
 );
 
 
